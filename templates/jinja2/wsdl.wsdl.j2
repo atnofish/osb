@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                  xmlns:plnk="http://docs.oasis-open.org/wsbpel/2.0/plnktype"
+                  targetNamespace="{{ target_namespace | default('http://' + (package_prefix or 'com.hsp') + '/' + service_name) }}"
+                  name="{{ service_name }}">
+  <wsdl:message name="{{ service_name }}Request">
+    <wsdl:part name="payload" element="tns:{{ service_name }}Request"/>
+  </wsdl:message>
+  <wsdl:message name="{{ service_name }}Response">
+    <wsdl:part name="payload" element="tns:{{ service_name }}Response"/>
+  </wsdl:message>
+  <wsdl:portType name="{{ service_name }}PortType">
+    <wsdl:operation name="{{ operation_name | default('defaultOperation') }}">
+      <wsdl:input message="tns:{{ service_name }}Request"/>
+      <wsdl:output message="tns:{{ service_name }}Response"/>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="{{ service_name }}Binding" type="tns:{{ service_name }}PortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="{{ operation_name | default('defaultOperation') }}">
+      <soap:operation soapAction="{{ operation_name | default('defaultOperation') }}"/>
+      <wsdl:input><soap:body use="literal"/></wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="{{ service_name }}">
+    <wsdl:port name="{{ service_name }}Port" binding="tns:{{ service_name }}Binding">
+      <soap:address location="{{ endpoint_url | default('http://localhost:7001/' + service_name) }}"/>
+    </wsdl:port>
+  </wsdl:service>
+  <plnk:partnerLinkType name="{{ service_name }}PL">
+    <plnk:role name="{{ service_name }}Provider">
+      <plnk:portType name="tns:{{ service_name }}PortType"/>
+    </plnk:role>
+  </plnk:partnerLinkType>
+</wsdl:definitions>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline xmlns="http://www.bea.com/ns/osb/pipeline" name="{{ pipeline_name }}">
+  <stage name="Route">
+    <requestAction>
+      <action name="Routing">
+        <targetService>{{ business_service_name }}</targetService>
+        <targetOperation>{{ target_operation | default('defaultOperation') }}</targetOperation>
+      </action>
+    </requestAction>
+    <responseAction>
+      <action name="Routing">
+        <targetService>{{ business_service_name }}</targetService>
+        <targetOperation>{{ target_operation | default('defaultOperation') }}</targetOperation>
+      </action>
+    </responseAction>
+  </stage>
+</pipeline>

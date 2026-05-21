@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<connection-factory xmlns="http://platform.oracle.com/weblogic/adapter/db/outbound/1.0/"
+                    name="{{ service_name }}"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <connection-definition>
+    <connection-instance>
+      <jndi-name>{{ jndi_name | default('eis/DB/' + connection) }}</jndi-name>
+      <connection-class>oracle.tip.adapter.db.DBPlatformConnectivityImpl</connection-class>
+      <connection-properties>
+        <connection-property>
+          <property-name>DataSourceJNDIName</property-name>
+          <property-value>{{ datasource_jndi | default('jdbc/' + connection) }}</property-value>
+        </connection-property>
+        <connection-property>
+          <property-name>PlatformClassName</property-name>
+          <property-value>{{ platform_class | default('org.eclipse.persistence.platform.database.Oracle10Platform') }}</property-value>
+        </connection-property>
+        <connection-property>
+          <property-name>SequencePreallocationSize</property-name>
+          <property-value>{{ sequence_preallocation_size | default('10') }}</property-value>
+        </connection-property>
+        <connection-property>
+          <property-name>UsesNativeSequencing</property-name>
+          <property-value>{{ uses_native_sequencing | default('true') }}</property-value>
+        </connection-property>
+        <connection-property>
+          <property-name>UsesSkipLocking</property-name>
+          <property-value>{{ uses_skip_locking | default('true') }}</property-value>
+        </connection-property>
+      </connection-properties>
+    </connection-instance>
+  </connection-definition>
+  <outbound-connection-resource>
+    <adapter-metadata>
+      <connector-version>12.2.1.0.0</connector-version>
+      <credit-spec>60000</credit-spec>
+      <property-value>{{ schema | default('') }}</property-value>
+    </adapter-metadata>
+  </outbound-connection-resource>
+</connection-factory>

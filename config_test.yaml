@@ -1,0 +1,43 @@
+global:
+  prefix: Hmw
+  domain_name: DefaultDomain
+  admin_url: localhost:7001
+  admin_user: weblogic
+  admin_password: weblogic
+  module_path: YlglSB/Ylgl/Workflow
+
+defaults:
+  pipeline_template: CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo
+  security_provider_id: XACMLAuthorizer
+  http:
+    timeout: 0
+    connection_timeout: 0
+    retry_count: 0
+    retry_interval: 30
+    load_balancing: round-robin
+
+project:
+  application_name: YlglSB
+  package_prefix: com.hand.hsp
+
+services:
+  - name: YlglWorkflowReturnSoap
+    type: http
+    wsdl:
+      source_path: workflow_extract/Workflow/WSDLs/OaWebService.WSDL
+      binding_name: OaWebServiceSoapBinding
+      namespace: http://server.webservice.jtg.com
+      port_name: OaWebService
+    security:
+      access_control: YlglWorkflowReturnSoapProxy
+      provider_id: XACMLAuthorizer
+    endpoint:
+      uri: http://192.168.61.150:8080/ylgl/services/OaWebService
+      timeout: 0
+      connection_timeout: 0
+      retry_count: 0
+      retry_interval: 30
+      load_balancing: round-robin
+    operations:
+      - name: workflowBack
+    business_service_name: YlglWorkflowReturnSoapBiz

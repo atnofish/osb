@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__filesystem__directory_tree",
+      "mcp__filesystem__read_multiple_files",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__search_files",
+      "mcp__filesystem__list_allowed_directories",
+      "Bash(python *)",
+      "Bash(pip *)",
+      "Bash(venv *)",
+      "Bash(venv\\Scripts\\activate *)",
+      "Bash(git *)",
+      "Bash(dir *)",
+      "Bash(findstr *)",
+      "Bash(tasklist *)",
+      "Bash(taskkill *)",
+      "Bash(lsof *)",
+      "Bash(xargs kill*)",
+      "Bash(pkill *)",
+      "Bash(echo *)",
+      "Skill(superpowers:writing-plans)"
+    ]
+  }
+}

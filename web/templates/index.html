@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSB 自动化工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: #f5f7fa;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+
+        /* === Header === */
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+            color: white;
+            padding: 40px 48px;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 400px;
+            height: 400px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 50%;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -60%;
+            right: 10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 50%;
+        }
+        .header h1 { font-size: 1.8em; font-weight: 700; position: relative; z-index: 1; }
+        .header p { opacity: 0.9; margin-top: 6px; font-size: 0.95em; position: relative; z-index: 1; }
+
+        /* === Container === */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 28px 24px 60px;
+        }
+
+        /* === Steps Bar === */
+        .steps-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 32px;
+            padding: 20px 0;
+        }
+        .step-item { display: flex; align-items: center; gap: 8px; }
+        .step-circle {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            color: #9ca3af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9em;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+        }
+        .step-item.active .step-circle {
+            background: #4f46e5;
+            color: white;
+            box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.12);
+            transform: scale(1.05);
+        }
+        .step-item.done .step-circle {
+            background: #10b981;
+            color: white;
+        }
+        .step-label {
+            font-size: 0.85em;
+            color: #9ca3af;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        .step-item.active .step-label { color: #4f46e5; font-weight: 600; }
+        .step-item.done .step-label { color: #10b981; }
+        .step-arrow {
+            width: 50px;
+            height: 2px;
+            background: #e5e7eb;
+            margin: 0 10px;
+            border-radius: 1px;
+            transition: background 0.3s;
+        }
+        .step-item.done + .step-arrow { background: #10b981; }
+
+        /* === Cards === */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+            margin-bottom: 24px;
+            display: none;
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        .card.visible { display: block; animation: cardIn 0.3s ease-out; }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card h2 {
+            font-size: 1.25em;
+            margin-bottom: 20px;
+            color: #111827;
+            font-weight: 700;
+        }
+
+        /* === Upload Area === */
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+            background: #fafbfc;
+        }
+        .upload-area:hover {
+            border-color: #4f46e5;
+            background: #f0f0ff;
+        }
+        .upload-area.has-file {
+            border-color: #10b981;
+            background: #f0fdf4;
+            border-style: solid;
+        }
+        .upload-area input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .upload-icon {
+            font-size: 2.8em;
+            margin-bottom: 12px;
+            display: block;
+        }
+        .upload-text { color: #4b5563; font-weight: 500; font-size: 1em; }
+        .upload-hint { color: #9ca3af; font-size: 0.85em; margin-top: 8px; }
+        .file-badge {
+            margin-top: 14px;
+            display: none;
+        }
+        .file-badge.show {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #ecfdf5;
+            border-radius: 8px;
+            color: #065f46;
+            font-size: 0.9em;
+            font-weight: 500;
+            border: 1px solid #a7f3d0;
+        }
+
+        /* === Info Box === */
+        .info-box {
+            margin-top: 20px;
+            padding: 16px 20px;
+            background: #fffbeb;
+            border-radius: 10px;
+            border-left: 4px solid #f59e0b;
+        }
+        .info-box strong { color: #92400e; }
+        .info-box span { color: #92400e; font-size: 0.88em; }
+
+        /* === Legend === */
+        .legend {
+            display: flex;
+            gap: 20px;
+            font-size: 0.83em;
+            color: #6b7280;
+            margin-bottom: 14px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+        .legend-dot.auto { background: #10b981; }
+        .legend-dot.manual { background: #d1d5db; }
+
+        /* === Form === */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px 24px;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label {
+            font-size: 0.85em;
+            color: #4b5563;
+            font-weight: 500;
+        }
+        .form-group label .req { color: #ef4444; margin-left: 2px; }
+        .form-group label .auto-tag {
+            display: inline-block;
+            font-size: 0.78em;
+            color: #10b981;
+            font-weight: 500;
+            margin-left: 4px;
+            background: #ecfdf5;
+            padding: 1px 7px;
+            border-radius: 4px;
+        }
+        .form-group input,
+        .form-group select {
+            padding: 10px 13px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.9em;
+            transition: all 0.2s;
+            font-family: inherit;
+            background: #fafbfc;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            background: white;
+        }
+        .form-group input.auto-filled {
+            border-color: #6ee7b7;
+            background: #f0fdf4;
+        }
+        .form-group input.auto-filled:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+        .section-label {
+            grid-column: 1 / -1;
+            font-size: 0.8em;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+            padding-top: 10px;
+            border-top: 1px solid #f3f4f6;
+            margin-top: 4px;
+        }
+
+        /* === Operations List === */
+        .ops-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+        .op-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            background: #f3f0ff;
+            color: #7c3aed;
+            border-radius: 8px;
+            font-size: 0.85em;
+            font-weight: 500;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .op-chip:hover { border-color: #7c3aed; }
+        .op-chip.selected {
+            background: #7c3aed;
+            color: white;
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+        }
+
+        /* === Buttons === */
+        .btn-row { display: flex; justify-content: space-between; margin-top: 28px; gap: 12px; }
+        .btn-row.single-right { justify-content: flex-end; }
+        .btn {
+            padding: 11px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+        }
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+        }
+        .btn-secondary:hover:not(:disabled) { background: #e5e7eb; }
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+        }
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+        }
+
+        /* === Preview === */
+        .preview-section { margin-bottom: 24px; }
+        .preview-section h3 {
+            font-size: 0.95em;
+            color: #4f46e5;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eef2ff;
+            font-weight: 600;
+        }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 10px 20px;
+            font-size: 0.88em;
+        }
+        .preview-grid .pl { color: #6b7280; font-weight: 500; }
+        .preview-grid .pv {
+            color: #111827;
+            word-break: break-all;
+            font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+            font-size: 0.92em;
+            background: #f9fafb;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        /* === Preview Files (Terminal) — fix overflow === */
+        .preview-files {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            padding: 20px 24px;
+            border-radius: 12px;
+            font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+            font-size: 0.83em;
+            line-height: 2;
+            overflow-x: auto;
+            white-space: nowrap;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .preview-files::-webkit-scrollbar { height: 6px; }
+        .preview-files::-webkit-scrollbar-track { background: #313244; border-radius: 3px; }
+        .preview-files::-webkit-scrollbar-thumb { background: #585b70; border-radius: 3px; }
+        .preview-files .dir { color: #89b4fa; font-weight: 600; }
+        .preview-files .file { color: #a6e3a1; padding-left: 20px; }
+
+        /* === Result === */
+        .result-area { text-align: center; padding: 40px 20px; }
+        .result-icon { font-size: 3.5em; margin-bottom: 16px; display: block; }
+        .result-title { font-size: 1.3em; color: #111827; margin-bottom: 8px; font-weight: 700; }
+        .result-desc { color: #6b7280; margin-bottom: 28px; }
+
+        /* === Loading === */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading-overlay.show { display: flex; }
+        .loading-box {
+            background: white;
+            padding: 36px 48px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loadingText { color: #4b5563; font-weight: 500; font-size: 0.95em; }
+
+        /* === Toast === */
+        .toast {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            padding: 14px 24px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 500;
+            font-size: 0.9em;
+            z-index: 200;
+            transform: translateX(140%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            max-width: 400px;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.error { background: #ef4444; }
+        .toast.success { background: #10b981; }
+
+        /* === Auth Section === */
+        .auth-section {
+            grid-column: 1 / -1;
+            margin-top: 8px;
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        .auth-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: #475569;
+            font-weight: 500;
+        }
+        .auth-toggle input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #4f46e5;
+        }
+        .auth-fields {
+            display: none;
+            margin-top: 12px;
+            gap: 12px;
+        }
+        .auth-fields.show { display: grid; grid-template-columns: 1fr 1fr; }
+        .auth-fields .form-group input {
+            padding: 9px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.88em;
+            background: white;
+        }
+        .auth-fields .form-group label {
+            font-size: 0.82em;
+        }
+
+        /* === Responsive === */
+        @media (max-width: 640px) {
+            .header { padding: 24px 20px; }
+            .header h1 { font-size: 1.4em; }
+            .container { padding: 20px 16px 40px; }
+            .card { padding: 24px 20px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .steps-bar { flex-wrap: wrap; gap: 4px; }
+            .step-label { display: none; }
+            .step-arrow { width: 30px; margin: 0 4px; }
+            .preview-grid { grid-template-columns: 110px 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>OSB 自动化工具</h1>
+    <p>上传 WSDL → 自动推断配置 → 人工审核 → 一键生成</p>
+</div>
+
+<div class="container">
+
+    <!-- Progress Steps -->
+    <div class="steps-bar">
+        <div class="step-item active" id="step1-bar">
+            <div class="step-circle">1</div>
+            <span class="step-label">上传 WSDL</span>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step-item" id="step2-bar">
+            <div class="step-circle">2</div>
+            <span class="step-label">审核配置</span>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step-item" id="step3-bar">
+            <div class="step-circle">3</div>
+            <span class="step-label">预览确认</span>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step-item" id="step4-bar">
+            <div class="step-circle">4</div>
+            <span class="step-label">下载产物</span>
+        </div>
+    </div>
+
+    <!-- Step 1: Upload WSDL -->
+    <div class="card visible" id="step1">
+        <h2>步骤 1：上传 WSDL 文件</h2>
+        <div class="upload-area" id="uploadArea">
+            <input type="file" id="wsdlFileInput" accept=".wsdl,.xml">
+            <div class="upload-icon">&#128236;</div>
+            <div class="upload-text">点击或拖拽 WSDL 文件到此处</div>
+            <div class="upload-hint">支持 .wsdl / .xml 文件，最大 10MB</div>
+        </div>
+        <div class="file-badge" id="fileBadge"></div>
+
+        <div class="info-box">
+            <strong>提示</strong>
+            <span>上传后系统将自动提取 WSDL 中的命名空间、Binding、Port、Operation 等信息，并智能推断服务名、应用名等配置。您只需在下一步审核即可。</span>
+        </div>
+
+        <div class="btn-row single-right">
+            <button class="btn btn-primary" id="btnToStep2" disabled>
+                下一步：审核配置 &#8594;
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2: Review Auto-Filled Config -->
+    <div class="card" id="step2">
+        <h2>步骤 2：审核配置</h2>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot auto"></div> 自动推断（请审核）</div>
+            <div class="legend-item"><div class="legend-dot manual"></div> 需要手动填写</div>
+        </div>
+        <p style="color:#6b7280;font-size:0.83em;margin-bottom:16px">
+            绿色字段为系统自动推断，灰色字段需要您手动填写。所有字段均可修改。标 <span style="color:#ef4444">*</span> 为必填。
+        </p>
+
+        <form id="configForm" class="form-grid">
+
+            <div class="section-label">项目信息</div>
+
+            <div class="form-group">
+                <label>应用名称 <span class="req">*</span> <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="application_name" class="auto-filled" placeholder="从 WSDL namespace 推断" required>
+            </div>
+            <div class="form-group">
+                <label>服务名称 <span class="req">*</span> <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="service_name" class="auto-filled" placeholder="从 WSDL port/binding 推断" required>
+            </div>
+            <div class="form-group">
+                <label>Business Service 名称 <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="business_service_name" class="auto-filled" placeholder="服务名 + Biz">
+            </div>
+            <div class="form-group">
+                <label>包前缀 <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="package_prefix" class="auto-filled" value="com.hand.hsp">
+            </div>
+
+            <div class="section-label">模块与模板</div>
+
+            <div class="form-group">
+                <label>模块路径 <span class="auto-tag">自动推断</span> <span style="color:#94a3b8;font-size:0.78em">← 决定 JAR 内文件结构</span></label>
+                <input type="text" name="module_path" class="auto-filled" placeholder="如 YlglSB/Ylgl/Workflow（填 YlglSB/Ylgl/Workflow/ProxyServices/ 也可以，会自动识别）">
+            </div>
+            <div class="form-group">
+                <label>Pipeline 模板</label>
+                <input type="text" name="pipeline_template" value="CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo">
+            </div>
+
+            <div class="section-label">WSDL 信息（自动提取）</div>
+
+            <div class="form-group">
+                <label>Binding Name <span class="auto-tag">自动提取</span></label>
+                <input type="text" name="binding_name" class="auto-filled" readonly style="background:#f0fdf4;cursor:default">
+            </div>
+            <div class="form-group">
+                <label>Namespace <span class="auto-tag">自动提取</span></label>
+                <input type="text" name="namespace" class="auto-filled" readonly style="background:#f0fdf4;cursor:default">
+            </div>
+            <div class="form-group">
+                <label>Port Name <span class="auto-tag">自动提取</span></label>
+                <input type="text" name="port_name" class="auto-filled" readonly style="background:#f0fdf4;cursor:default">
+            </div>
+            <div class="form-group">
+                <label>安全策略</label>
+                <input type="text" name="provider_id" value="XACMLAuthorizer">
+            </div>
+
+            <div class="section-label">后端服务</div>
+
+            <div class="form-group full">
+                <label>后端服务地址 <span class="req">*</span> <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="endpoint_uri" class="auto-filled" placeholder="从 WSDL address location 推断" required>
+            </div>
+
+            <div class="form-group">
+                <label>超时（秒，0=不限制）</label>
+                <input type="number" name="timeout" value="0">
+            </div>
+            <div class="form-group">
+                <label>连接超时（秒，0=不限制）</label>
+                <input type="number" name="connection_timeout" value="0">
+            </div>
+            <div class="form-group">
+                <label>重试次数</label>
+                <input type="number" name="retry_count" value="0">
+            </div>
+            <div class="form-group">
+                <label>负载均衡</label>
+                <select name="load_balancing">
+                    <option value="round-robin" selected>Round Robin</option>
+                    <option value="random">Random</option>
+                    <option value="weight-based">Weight Based</option>
+                </select>
+            </div>
+
+            <div class="auth-section">
+                <label class="auth-toggle">
+                    <input type="checkbox" id="authEnabled" onchange="toggleAuth()">
+                    启用 HTTP Basic 认证（用于 SAP 等需要密码校验的后端接口）
+                </label>
+                <div class="auth-fields" id="authFields">
+                    <div class="form-group">
+                        <label>认证用户名</label>
+                        <input type="text" name="auth_username" placeholder="如 JTOA">
+                    </div>
+                    <div class="form-group">
+                        <label>认证密码</label>
+                        <input type="password" name="auth_password" placeholder="输入密码">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-label">操作名称（至少选一个）</div>
+
+            <div class="form-group full">
+                <div class="ops-list" id="opsList"></div>
+            </div>
+
+        </form>
+
+        <div class="btn-row">
+            <button class="btn btn-secondary" onclick="goToStep(1)">&#8592; 上一步</button>
+            <button class="btn btn-primary" id="btnToPreview">&#8594; 预览确认</button>
+        </div>
+    </div>
+
+    <!-- Step 3: Preview -->
+    <div class="card" id="step3">
+        <h2>步骤 3：预览确认</h2>
+        <p style="color:#6b7280;font-size:0.88em;margin-bottom:20px">
+            以下是即将生成的文件摘要，请确认无误后点击生成。
+        </p>
+
+        <div class="preview-section">
+            <h3>配置信息</h3>
+            <div class="preview-grid" id="previewConfig"></div>
+        </div>
+
+        <div class="preview-section">
+            <h3>生成文件</h3>
+            <div class="preview-files" id="previewFiles"></div>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn btn-secondary" onclick="goToStep(2)">&#8592; 返回修改</button>
+            <button class="btn btn-success" id="btnGenerate">&#10003; 确认生成</button>
+        </div>
+    </div>
+
+    <!-- Step 4: Download -->
+    <div class="card" id="step4">
+        <div class="result-area">
+            <div class="result-icon">&#9989;</div>
+            <div class="result-title">生成完成！</div>
+            <div class="result-desc">已为您生成完整的 OSB 项目文件</div>
+            <button class="btn btn-primary" id="btnDownload" style="font-size:1.05em;padding:13px 36px">
+                &#128229; 下载 ZIP 文件
+            </button>
+            <div style="margin-top:20px">
+                <button class="btn btn-secondary" onclick="location.reload()">&#8635; 重新生成</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading">
+    <div class="loading-box">
+        <div class="spinner"></div>
+        <div id="loadingText">正在处理...</div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+let uploadedWsdlFilename = '';
+let wsdlAnalysisData = null;
+let selectedOperations = new Set();
+let allOperations = [];
+let downloadBlobUrl = null;
+
+// Auth toggle
+function toggleAuth() {
+    document.getElementById('authFields').classList.toggle('show', document.getElementById('authEnabled').checked);
+}
+
+// Step navigation
+function goToStep(step) {
+    for (let i = 1; i <= 4; i++) {
+        document.getElementById('step' + i).classList.toggle('visible', i === step);
+        const bar = document.getElementById('step' + i + '-bar');
+        bar.classList.remove('active', 'done');
+        if (i < step) bar.classList.add('done');
+        if (i === step) bar.classList.add('active');
+    }
+}
+
+// File upload
+const wsdlFileInput = document.getElementById('wsdlFileInput');
+const uploadArea = document.getElementById('uploadArea');
+const fileBadge = document.getElementById('fileBadge');
+
+wsdlFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    showLoading('正在分析 WSDL...');
+    const formData = new FormData();
+    formData.append('wsdl_file', file);
+
+    try {
+        const resp = await fetch('/api/analyze-wsdl', { method: 'POST', body: formData });
+        const data = await resp.json();
+        hideLoading();
+
+        if (data.error) { showToast(data.error, 'error'); return; }
+
+        uploadedWsdlFilename = data.filename;
+        wsdlAnalysisData = data;
+        uploadArea.classList.add('has-file');
+        fileBadge.textContent = '✓ ' + data.filename + ' (' + (data.file_size / 1024).toFixed(1) + ' KB)';
+        fileBadge.classList.add('show');
+
+        // Auto-fill all inferred fields
+        autoFillForm(data);
+
+        // Operations
+        allOperations = data.operations || ['defaultOperation'];
+        selectedOperations = new Set([allOperations[0]]);
+        renderOperations();
+
+        document.getElementById('btnToStep2').disabled = false;
+        showToast('WSDL 分析完成，已自动推断配置', 'success');
+    } catch (err) {
+        hideLoading();
+        showToast('分析 WSDL 失败: ' + err.message, 'error');
+    }
+});
+
+function autoFillForm(data) {
+    const fields = {
+        'application_name': data.inferred_application_name || '',
+        'service_name': data.inferred_service_name || '',
+        'business_service_name': data.inferred_business_service_name || '',
+        'package_prefix': data.inferred_package_prefix || 'com.hand.hsp',
+        'module_path': data.inferred_module_path || '',
+        'binding_name': data.binding_name || '',
+        'namespace': data.namespace || '',
+        'port_name': data.port_name || '',
+        'endpoint_uri': data.endpoint_uri || '',
+    };
+
+    for (const [name, value] of Object.entries(fields)) {
+        const input = document.querySelector('input[name="' + name + '"]');
+        if (input && value) {
+            input.value = value;
+            if (!input.classList.contains('auto-filled')) {
+                input.classList.add('auto-filled');
+            }
+        }
+    }
+}
+
+// Operations chips
+function renderOperations() {
+    const container = document.getElementById('opsList');
+    container.innerHTML = '';
+    allOperations.forEach(op => {
+        const chip = document.createElement('span');
+        chip.className = 'op-chip' + (selectedOperations.has(op) ? ' selected' : '');
+        chip.textContent = op;
+        chip.addEventListener('click', () => {
+            if (selectedOperations.has(op)) {
+                if (selectedOperations.size > 1) selectedOperations.delete(op);
+            } else {
+                selectedOperations.add(op);
+            }
+            renderOperations();
+        });
+        container.appendChild(chip);
+    });
+}
+
+// Step 1 -> 2
+document.getElementById('btnToStep2').addEventListener('click', () => goToStep(2));
+
+// Step 2 -> 3 (Preview)
+document.getElementById('btnToPreview').addEventListener('click', async () => {
+    const form = document.getElementById('configForm');
+    const formData = new FormData(form);
+
+    // Validate
+    if (!formData.get('application_name')) { showToast('请填写应用名称', 'error'); return; }
+    if (!formData.get('service_name')) { showToast('请填写服务名称', 'error'); return; }
+    if (!formData.get('endpoint_uri')) { showToast('请填写后端服务地址', 'error'); return; }
+
+    showLoading('正在生成预览...');
+
+    const data = Object.fromEntries(formData.entries());
+    data.wsdl_filename = uploadedWsdlFilename;
+    data.operations_list = [...selectedOperations];
+
+    try {
+        const resp = await fetch('/api/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        hideLoading();
+
+        if (result.error) { showToast(result.error, 'error'); return; }
+
+        // Render preview (using textContent to prevent XSS)
+        const configGrid = document.getElementById('previewConfig');
+        configGrid.innerHTML = '';
+        const configItems = [
+            ['应用名称', result.application_name],
+            ['项目名', result.project_name],
+            ['模块路径', result.module_path],
+            ['服务名称', result.service_name],
+            ['Business Service', result.business_service_name],
+            ['Proxy 名称', result.proxy_name],
+            ['Pipeline 名称', result.pipeline_name],
+            ['WSDL 文件', result.wsdl_file_name],
+            ['后端地址', result.endpoint_uri],
+            ['操作列表', result.operations.join(', ')],
+            ['安全策略', result.security_provider || '无'],
+            ['HTTP 认证', result.auth_username ? 'Basic Auth (' + result.auth_username + ')' : '无'],
+        ];
+        configItems.forEach(([l, v]) => {
+            const spanL = document.createElement('span');
+            spanL.className = 'pl';
+            spanL.textContent = l;
+            const spanV = document.createElement('span');
+            spanV.className = 'pv';
+            spanV.textContent = v;
+            configGrid.appendChild(spanL);
+            configGrid.appendChild(spanV);
+        });
+
+        const filesContainer = document.getElementById('previewFiles');
+        filesContainer.innerHTML = '';
+        result.files.forEach(f => {
+            const span = document.createElement('span');
+            span.className = f.endsWith('/') ? 'dir' : 'file';
+            span.textContent = f.trim();
+            filesContainer.appendChild(span);
+        });
+
+        goToStep(3);
+    } catch (err) {
+        hideLoading();
+        showToast('预览失败: ' + err.message, 'error');
+    }
+});
+
+// Step 3 -> 4 (Generate)
+document.getElementById('btnGenerate').addEventListener('click', async () => {
+    const form = document.getElementById('configForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    data.wsdl_filename = uploadedWsdlFilename;
+    data.operations_list = [...selectedOperations];
+
+    showLoading('正在生成 OSB 项目文件...');
+
+    try {
+        const resp = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.error || '生成失败');
+        }
+
+        const blob = await resp.blob();
+        if (downloadBlobUrl) URL.revokeObjectURL(downloadBlobUrl);
+        downloadBlobUrl = URL.createObjectURL(blob);
+
+        document.getElementById('btnDownload').onclick = () => {
+            const a = document.createElement('a');
+            a.href = downloadBlobUrl;
+            a.download = 'osb_output.jar';
+            a.click();
+        };
+
+        hideLoading();
+        goToStep(4);
+        showToast('生成成功！', 'success');
+    } catch (err) {
+        hideLoading();
+        showToast(err.message, 'error');
+    }
+});
+
+// Loading with timeout protection
+let loadingTimeout = null;
+function showLoading(text) {
+    document.getElementById('loadingText').textContent = text || '正在处理...';
+    document.getElementById('loading').classList.add('show');
+    loadingTimeout = setTimeout(() => {
+        hideLoading();
+        showToast('请求超时，请检查网络连接', 'error');
+    }, 30000);
+}
+function hideLoading() {
+    if (loadingTimeout) { clearTimeout(loadingTimeout); loadingTimeout = null; }
+    document.getElementById('loading').classList.remove('show');
+}
+
+// Toast
+function showToast(msg, type) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast ' + (type || 'error') + ' show';
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+</script>
+
+</body>
+</html>

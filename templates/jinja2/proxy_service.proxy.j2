@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns="http://www.bea.com/ns/osb/proxyservice" name="{{ proxy_name }}">
+  <soap version="1.1" namespace=""/>
+  <transport>{{ transport_protocol | default('http') }}</transport>
+  <type>
+    <wsdl>
+      <location>{{ wsdl_location | default(proxy_name) }}</location>
+      <binding>{{ binding | default(proxy_name + '-binding') }}</binding>
+    </wsdl>
+  </type>
+  <transportProperties>
+    <entry key="http-endpointUri">
+      <string>{{ endpoint_uri | default('/' + project_name + '/ProxyServices/' + proxy_name) }}</string>
+    </entry>
+  </transportProperties>
+  <pipeline name="{{ pipeline_name | default(proxy_name + 'PP') }}"/>
+</service>

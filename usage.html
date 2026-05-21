@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSB 自动化工具 - 操作手册</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            line-height: 1.8;
+            color: #1a1a2e;
+            background: #f5f7fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+        }
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 36px 40px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .section h2 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            border-left: 4px solid #667eea;
+            padding-left: 16px;
+        }
+        .section h3 {
+            font-size: 1.15em;
+            margin: 24px 0 12px;
+            color: #444;
+        }
+        .section p {
+            margin-bottom: 12px;
+            color: #555;
+        }
+        .section ul, .section ol {
+            margin: 12px 0 12px 24px;
+            color: #555;
+        }
+        .section li { margin-bottom: 6px; }
+        code {
+            background: #f0f2f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+            font-size: 0.92em;
+            color: #d63384;
+        }
+        pre {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            padding: 20px 24px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 16px 0;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 6px;
+        }
+        .badge-req { background: #dbeafe; color: #1d4ed8; }
+        .badge-opt { background: #dcfce7; color: #16a34a; }
+        .table-wrap {
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fb;
+            color: #333;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        tr:hover { background: #f8f9fb; }
+        .steps {
+            display: flex;
+            gap: 12px;
+            margin: 24px 0;
+            flex-wrap: wrap;
+        }
+        .step-card {
+            flex: 1;
+            min-width: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .step-card .num {
+            font-size: 2em;
+            font-weight: 700;
+            opacity: 0.3;
+        }
+        .step-card .label {
+            font-size: 1em;
+            margin-top: 4px;
+        }
+        .tip {
+            background: #fff7ed;
+            border-left: 4px solid #f59e0b;
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+            font-size: 0.95em;
+            color: #92400e;
+        }
+        .success {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+            color: #166534;
+        }
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>OSB 自动化工具</h1>
+    <p>Oracle Service Bus 接口自动化配置 — YAML 驱动，一键生成</p>
+</div>
+
+<div class="container">
+
+    <!-- 一句话总结 -->
+    <div class="section">
+        <div class="success" style="font-size:1.15em;">
+            <strong>核心流程：</strong>拿到 WSDL &rarr; 填 config.yaml &rarr; 跑生成 &rarr; 导入 OSB
+        </div>
+        <div class="steps">
+            <div class="step-card">
+                <div class="num">1</div>
+                <div class="label">准备 WSDL 文件</div>
+            </div>
+            <div class="step-card">
+                <div class="num">2</div>
+                <div class="label">编写 config.yaml</div>
+            </div>
+            <div class="step-card">
+                <div class="num">3</div>
+                <div class="label">运行生成命令</div>
+            </div>
+            <div class="step-card">
+                <div class="num">4</div>
+                <div class="label">导入 OSB</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 环境准备 -->
+    <div class="section">
+        <h2>环境准备</h2>
+        <ul>
+            <li><strong>操作系统：</strong>Windows（推荐 Windows 10+）</li>
+            <li><strong>Python：</strong>3.8 及以上</li>
+            <li><strong>依赖包：</strong>Jinja2 + PyYAML</li>
+        </ul>
+        <pre><code># 安装依赖（只需执行一次）
+pip install jinja2 pyyaml
+
+# 验证安装
+python -c "import jinja2, yaml; print('OK')"</code></pre>
+    </div>
+
+    <!-- 步骤一：准备 WSDL -->
+    <div class="section">
+        <h2>步骤一：准备 WSDL 文件</h2>
+        <p>获取目标接口的 WSDL 文件，可以来自：</p>
+        <ul>
+            <li>接口提供方给的 WSDL URL，浏览器打开后另存为 <code>.wsdl</code> 文件</li>
+            <li>已有的 OSB 项目中导出的 WSDL</li>
+            <li>SoapUI / Postman 等工具导出的 WSDL</li>
+        </ul>
+        <div class="tip">
+            <strong>提示：</strong>WSDL 文件放在项目目录外的任意位置即可，配置中通过 <code>source_path</code> 指定路径（支持相对路径和绝对路径）。
+        </div>
+    </div>
+
+    <!-- 步骤二：编写配置 -->
+    <div class="section">
+        <h2>步骤二：编写 config.yaml</h2>
+
+        <h3>完整配置示例</h3>
+<pre><code>global:
+  module_path: YlglSB/Ylgl/Workflow        # 目标模块路径
+
+defaults:
+  pipeline_template: CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo
+  http:
+    timeout: 0
+    connection_timeout: 0
+    retry_count: 0
+    retry_interval: 30
+    load_balancing: round-robin
+
+project:
+  application_name: YlglSB
+  package_prefix: com.hand.hsp
+
+services:
+  - name: YlglWorkflowReturnSoap
+    type: http
+    wsdl:
+      source_path: ../wsdls/OaWebService.WSDL
+      binding_name: OaWebServiceSoapBinding
+      namespace: http://server.webservice.jtg.com
+      port_name: OaWebService
+    security:
+      provider_id: XACMLAuthorizer
+    endpoint:
+      uri: http://192.168.61.150:8080/ylgl/services/OaWebService
+    operations:
+      - name: workflowBack
+    business_service_name: YlglWorkflowReturnSoapBiz</code></pre>
+
+        <h3>配置字段说明</h3>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段路径</th>
+                        <th>必填</th>
+                        <th>说明</th>
+                        <th>如何获取</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>global.module_path</code></td>
+                        <td><span class="badge badge-opt">可选</span></td>
+                        <td>目标 OSB 模块路径</td>
+                        <td>看已有项目的路径结构，不填则用服务名</td>
+                    </tr>
+                    <tr>
+                        <td><code>project.application_name</code></td>
+                        <td><span class="badge badge-req">必填</span></td>
+                        <td>OSB 应用名称</td>
+                        <td>看已有项目，如 <code>YlglSB</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>services[].name</code></td>
+                        <td><span class="badge badge-req">必填</span></td>
+                        <td>服务名称</td>
+                        <td>自定义，通常与 WSDL 的 service 名一致</td>
+                    </tr>
+                    <tr>
+                        <td><code>services[].type</code></td>
+                        <td><span class="badge badge-req">必填</span></td>
+                        <td>服务类型：<code>http</code> / <code>db_adapter</code> / <code>jms</code> / <code>file</code></td>
+                        <td>HTTP/SOAP 接口填 <code>http</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>wsdl.source_path</code></td>
+                        <td><span class="badge badge-req">必填</span></td>
+                        <td>WSDL 文件路径</td>
+                        <td>指向 WSDL 文件的相对或绝对路径</td>
+                    </tr>
+                    <tr>
+                        <td><code>wsdl.binding_name</code></td>
+                        <td><span class="badge badge-opt">可选</span></td>
+                        <td>WSDL binding 名称</td>
+                        <td>WSDL 文件中 <code>&lt;wsdl:binding name="..."&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>wsdl.namespace</code></td>
+                        <td><span class="badge badge-opt">可选</span></td>
+                        <td>WSDL 目标命名空间</td>
+                        <td>WSDL 文件中 <code>targetNamespace="..."</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>wsdl.port_name</code></td>
+                        <td><span class="badge badge-opt">可选</span></td>
+                        <td>WSDL port 名称</td>
+                        <td>WSDL 文件中 <code>&lt;wsdl:port name="..."&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>security.provider_id</code></td>
+                        <td><span class="badge badge-opt">可选</span></td>
+                        <td>安全策略提供者</td>
+                        <td>通常填 <code>XACMLAuthorizer</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>endpoint.uri</code></td>
+                        <td><span class="badge badge-req">必填</span></td>
+                        <td>后端服务实际地址</td>
+                        <td>问接口提供方获取</td>
+                    </tr>
+                    <tr>
+                        <td><code>operations[].name</code></td>
+                        <td><span class="badge badge-opt">可选</span></td>
+                        <td>操作名称</td>
+                        <td>WSDL 中 <code>&lt;wsdl:operation name="..."&gt;</code>，多个用列表</td>
+                    </tr>
+                    <tr>
+                        <td><code>business_service_name</code></td>
+                        <td><span class="badge badge-opt">可选</span></td>
+                        <td>Business Service 自定义名称</td>
+                        <td>不填则用 <code>name</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>从 WSDL 文件提取配置</h3>
+        <p>打开 WSDL 文件，找到以下关键信息：</p>
+<pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;wsdl:definitions
+    targetNamespace="http://server.webservice.jtg.com"   ← wsdl.namespace
+    ...&gt;
+
+    &lt;wsdl:binding name="OaWebServiceSoapBinding" ...&gt;      ← wsdl.binding_name
+        ...
+        &lt;wsdl:operation name="workflowBack"&gt;                  ← operations[].name
+            ...
+        &lt;/wsdl:operation&gt;
+    &lt;/wsdl:binding&gt;
+
+    &lt;wsdl:service name="OaWebService"&gt;
+        &lt;wsdl:port name="OaWebService" ...&gt;                   ← wsdl.port_name
+            &lt;wsdlsoap:address
+                location="http://...:8080/ylgl/services/OaWebService"/&gt; ← endpoint.uri
+        &lt;/wsdl:port&gt;
+    &lt;/wsdl:service&gt;
+&lt;/wsdl:definitions&gt;</code></pre>
+    </div>
+
+    <!-- 步骤三：运行生成 -->
+    <div class="section">
+        <h2>步骤三：运行生成</h2>
+<pre><code># 在项目目录执行
+cd osb-auto-config
+
+# 基本用法
+python python/generate_project.py config.yaml
+
+# 指定输出目录
+python python/generate_project.py config.yaml generated_projects
+
+# 输出结构
+generated_projects/
+└── YlglSB/                              ← application_name
+    └── YlglWorkflowReturnSoapSB/        ← {服务名}SB
+        ├── BusinessServices/
+        │   └── YlglWorkflowReturnSoapBiz.BusinessService
+        ├── Pipelines/
+        │   └── YlglWorkflowReturnSoapPP.Pipeline
+        ├── ProxyServices/
+        │   └── YlglWorkflowReturnSoapProxy.ProxyService
+        ├── WSDLs/
+        │   └── OaWebService.WSDL
+        ├── Adapters/                    ← HTTP 类型不使用
+        ├── Schemas/                     ← 空目录
+        └── Transformations/             ← 空目录</code></pre>
+
+        <div class="tip">
+            <strong>多服务批量生成：</strong>在 <code>services</code> 列表里加多个服务，脚本会自动为每个服务生成独立项目，一次性全部完成。
+        </div>
+    </div>
+
+    <!-- 步骤四：导入 OSB -->
+    <div class="section">
+        <h2>步骤四：导入 OSB</h2>
+        <ol>
+            <li>打开 Oracle JDeveloper，打开 OSB 项目</li>
+            <li>将生成的 4 个文件（<code>.BusinessService</code>、<code>.Pipeline</code>、<code>.ProxyService</code>、<code>.WSDL</code>）复制到对应项目的目录中</li>
+            <li>保存并部署到 WebLogic 即可</li>
+        </ol>
+    </div>
+
+    <!-- 常见问题 -->
+    <div class="section">
+        <h2>常见问题</h2>
+
+        <h3>Q: 生成的文件导入 OSB 报错了？</h3>
+        <p>检查 <code>config.yaml</code> 中的 <code>module_path</code> 是否与实际 OSB 项目的模块路径一致。不一致会导致内部引用路径错误。</p>
+
+        <h3>Q: WSDL 文件已经是 OSB 格式了？</h3>
+        <p>工具会自动检测。如果 WSDL 文件已包含 <code>&lt;con:wsdlEntry&gt;</code> 标签，会直接复制；否则自动用 CDATA 包裹。</p>
+
+        <h3>Q: 一个接口有多个 operation 怎么办？</h3>
+        <p>当前一个 Pipeline 只配置第一个 operation。如需多个 operation，在 <code>operations</code> 列表里列出来，每个 service 配置一个 operation，共用同一个 WSDL 和 endpoint。</p>
+
+        <h3>Q: 如何修改默认超时/重试配置？</h3>
+        <p>在 <code>defaults.http</code> 段修改全局默认值，或在具体服务的 <code>endpoint</code> 段覆盖。</p>
+
+        <h3>Q: 生成的产物和人工配置有什么区别？</h3>
+        <p>经过逐行对比，XML 结构、命名空间、配置段完全一致。唯一的差异是我们修复了人工产物中的拼写错误（<code>session-sctikiness</code> &rarr; <code>session-stickiness</code>）。</p>
+    </div>
+
+</div>
+
+<div class="footer">
+    OSB Auto-Config &copy; 2026 &nbsp;|&nbsp; YAML 驱动 &nbsp;|&nbsp; 生成产物与人工配置同等水平
+</div>
+
+</body>
+</html>

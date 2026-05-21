@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<service xmlns="http://www.bea.com/ns/osb/businessservice" name="{{ service_name }}">
+  <soap version="1.1" namespace=""/>
+  <transport>{{ transport_type }}</transport>
+  <type>
+    {% if service_type == 'jms' %}
+    <messaging>
+      <requestType>{{ request_type | default('Text') }}</requestType>
+      <responseType>{{ response_type | default('None') }}</responseType>
+    </messaging>
+    {% elif service_type == 'file' %}
+    <messaging>
+      <requestType>{{ request_type | default('Text') }}</requestType>
+      <responseType>{{ response_type | default('None') }}</responseType>
+    </messaging>
+    {% else %}
+    <wsdl>
+      <location>{{ wsdl_location | default(service_name + '-concrete') }}</location>
+      <binding>{{ binding | default(service_name + '_ptt-binding') }}</binding>
+    </wsdl>
+    {% endif %}
+  </type>
+  <transportProperties>
+    {% if service_type == 'jms' %}
+    <entry key="jms-URI">
+      <string>{{ endpoint_uri }}</string>
+    </entry>
+    <entry key="jms-DestinationType">
+      <string>Queue</string>
+    </entry>
+    {% elif service_type == 'file' %}
+    <entry key="file-URI">
+      <string>{{ file_path }}</string>
+    </entry>
+    {% endif %}
+  </transportProperties>
+</service>

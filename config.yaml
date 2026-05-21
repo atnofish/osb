@@ -1,0 +1,172 @@
+# OSB 自动化配置工具 - 全局参数配置
+# 所有带 Hmw 前缀的参数可根据实际项目修改
+
+# ============================================================
+# 全局配置
+# ============================================================
+global:
+  prefix: Hmw                          # 业务前缀，所有资源名会以此为前缀
+  domain_name: DefaultDomain           # WebLogic 域名
+  admin_url: localhost:7101            # 管理员控制台地址
+  admin_user: weblogic                 # 管理员用户名
+  admin_password: weblogic             # 管理员密码
+
+# ============================================================
+# 阶段一：JDBC 数据源配置
+# ============================================================
+datasource:
+  name: HrDS                           # 数据源名称
+  jndi: jdbc/HrDS                      # JNDI 名称
+  database_type: Oracle                # 数据库类型
+  driver: "*Oracle's Driver (Thin) for Service connections; Versions:Any"
+  url: jdbc:oracle:thin:@localhost:1521:XE   # 连接 URL
+  username: hr                         # 数据库用户名
+  password: hr                         # 数据库密码
+  target: DefaultServer                # 部署目标
+  scope: 全局                           # 范围
+
+# ============================================================
+# 阶段一：JMS 初始化配置（8 步链路）
+# ============================================================
+jms:
+  # 2.4.2 持久性存储
+  jdbc_store:
+    name: JDBCStore-Hmw
+    datasource: HrDS                   # 引用 datasource.name
+    table_prefix: HMW2017
+    target: DefaultServer
+
+  # 2.4.3 JMS 服务器
+  jms_server:
+    name: JMSServer-Hmw
+    persistence_store: JDBCStore-Hmw   # 引用 jdbc_store.name
+    target: DefaultServer
+
+  # 2.4.4 JMS 模块
+  jms_module:
+    name: SystemModule-Hmw
+    target: DefaultServer
+
+  # 2.4.5 子部署
+  sub_deployment:
+    name: HmwSubModule
+    jms_server: JMSServer-Hmw         # 引用 jms_server.name
+    module: SystemModule-Hmw          # 引用 jms_module.name
+
+  # 2.4.6 连接工厂
+  connection_factory:
+    name: HmwConnectionFactory
+    jndi: jms/HmwConnectionFactory
+    xa_enabled: true
+    max_messages_per_session: 10
+    subscription_sharing: 专用          # 专用/排他/非专用/全局
+    client_id_policy: 有限制            # 有限制/无限制
+    sub_deployment: HmwSubModule      # 引用 sub_deployment.name
+    module: SystemModule-Hmw          # 引用 jms_module.name
+
+  # 2.4.7 队列
+  queue:
+    name: HmwQueue
+    jndi: jms/HmwQueue
+    sub_deployment: HmwSubModule      # 引用 sub_deployment.name
+    module: SystemModule-Hmw          # 引用 jms_module.name
+
+  # 2.4.8 主题（可选）
+  topic:
+    enabled: false                     # 是否需要主题
+    name: HmwTopic
+    jndi: jms/HmwTopic
+    sub_deployment: HmwSubModule
+    module: SystemModule-Hmw
+
+# ============================================================
+# 阶段二：DBAdapter 服务器部署配置
+# ============================================================
+dbadapter:
+  outbound_connection:
+    jndi: eis/DB/HrDS                  # 出站连接 JNDI 名称
+    datasource_name: jdbc/HrDS         # 引用的数据源 JNDI
+    platform_class: org.eclipse.persistence.platform.database.Oracle10Platform
+    sequence_preallocation_size: 50
+    uses_batch_writing: true
+    uses_native_sequencing: true
+    uses_skip_locking: true
+
+# ============================================================
+# 阶段三：SB 项目部署配置
+# ============================================================
+deploy:
+  server: IntegratedWebLogicServer     # 目标服务器
+  project_path: ""                     # SB 项目路径（可选，WLST 部署时填写）
+
+# ============================================================
+# 阶段四：项目骨架生成配置
+# ============================================================
+project:
+  application_name: HmwServiceBusApp   # Application 名称
+  package_prefix: com.hand.hsp         # 包前缀
+  jdeveloper_home: C:\\Oracle\\Jdeveloper12c  # JDeveloper 安装路径
+  soa_home: C:\\Oracle\\Jdeveloper12c\\SOA\\12.2.1.2.0  # SOA 主目录
+
+# 服务定义列表
+services:
+  - name: EmployeesBiz
+    type: db_adapter                   # db_adapter / jms / http / file
+    database:
+      connection: HrDS
+      schema: HR
+      table: EMPLOYEES_IMP
+      operations:
+        - insert
+        - update
+        - delete
+        - select
+        - selectByPrimaryKey
+
+  - name: JmsClientBiz
+    type: jms
+    jms:
+      transport: jms
+      endpoint_uri: jms://localhost:7101/jms.HmwConnectionFactory/jms.HmwQueue
+      request_type: Text
+      response_type: None
+
+  - name: FileWriteBiz
+    type: file
+    file:
+      path: D:\\FileTransport\\output
+      request_type: Text
+      response_type: None
+
+# ============================================================
+# 全局默认配置
+# ============================================================
+defaults:
+  pipeline_template: CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo
+  security_provider_id: XACMLAuthorizer
+  http:
+    timeout: 0
+    connection_timeout: 0
+    retry_count: 0
+    retry_interval: 30
+    load_balancing: round-robin
+
+# ============================================================
+# HTTP/SOAP 服务示例（注释状态，不干扰现有测试）
+# ============================================================
+#   - name: YlglWorkflowReturnSoap
+#     type: http
+#     wsdl:
+#       source_path: ./wsdl/OaWebService.wsdl
+#     security:
+#       access_control: YlglWorkflowReturnSoapProxy
+#       provider_id: XACMLAuthorizer
+#     endpoint:
+#       uri: http://192.168.61.150:8080/ylgl/services/OaWebService
+#       timeout: 0
+#       connection_timeout: 0
+#       retry_count: 0
+#       retry_interval: 30
+#       load_balancing: round-robin
+#     operations:
+#       - name: workflowBack

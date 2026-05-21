@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<con:wsdlEntry xmlns:con="http://www.bea.com/wli/sb/resources/config">
+    <con:wsdl><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="http://server.webservice.jtg.com" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://server.webservice.jtg.com" xmlns:intf="http://server.webservice.jtg.com" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--WSDL created by Apache Axis version: 1.4
+Built on Apr 22, 2006 (06:55:48 PDT)-->
+ <wsdl:types>
+  <schema elementFormDefault="qualified" targetNamespace="http://server.webservice.jtg.com" xmlns="http://www.w3.org/2001/XMLSchema">
+   <element name="workflowBack">
+    <complexType>
+     <sequence>
+      <element name="esbInfo" type="impl:EsbInfo"/>
+      <element name="esbRequest" type="impl:EsbRequest"/>
+     </sequence>
+    </complexType>
+   </element>
+   <complexType name="EsbInfo">
+    <sequence>
+     <element name="attr1" nillable="true" type="xsd:string"/>
+     <element name="attr2" nillable="true" type="xsd:string"/>
+     <element name="attr3" nillable="true" type="xsd:string"/>
+     <element name="instId" nillable="true" type="xsd:string"/>
+     <element name="requestTime" nillable="true" type="xsd:string"/>
+     <element name="responseTime" nillable="true" type="xsd:string"/>
+     <element name="returnCode" nillable="true" type="xsd:string"/>
+     <element name="returnMsg" nillable="true" type="xsd:string"/>
+     <element name="returnStatus" nillable="true" type="xsd:string"/>
+    </sequence>
+   </complexType>
+   <complexType name="EsbRequest">
+    <sequence>
+     <element name="requestInfo" nillable="true" type="xsd:string"/>
+    </sequence>
+   </complexType>
+   <element name="workflowBackResponse">
+    <complexType>
+     <sequence>
+      <element name="workflowBackReturn" type="impl:EsbResult"/>
+     </sequence>
+    </complexType>
+   </element>
+   <complexType name="EsbResult">
+    <sequence>
+     <element name="esbInfo" nillable="true" type="impl:EsbInfo"/>
+     <element name="resultInfo" nillable="true" type="xsd:string"/>
+    </sequence>
+   </complexType>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="workflowBackResponse">
+
+      <wsdl:part element="impl:workflowBackResponse" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="workflowBackRequest">
+
+      <wsdl:part element="impl:workflowBack" name="parameters"/>
+
+   </wsdl:message>
+
+   <wsdl:portType name="OaWebService">
+
+      <wsdl:operation name="workflowBack">
+
+         <wsdl:input message="impl:workflowBackRequest" name="workflowBackRequest"/>
+
+         <wsdl:output message="impl:workflowBackResponse" name="workflowBackResponse"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="OaWebServiceSoapBinding" type="impl:OaWebService">
+
+      <wsdlsoap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="workflowBack">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="workflowBackRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="workflowBackResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="OaWebService">
+
+      <wsdl:port binding="impl:OaWebServiceSoapBinding" name="OaWebService">
+
+         <wsdlsoap:address location="http://192.168.61.150:8080/ylgl/services/OaWebService"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>
+]]></con:wsdl>
+    <con:targetNamespace>http://server.webservice.jtg.com</con:targetNamespace>
+</con:wsdlEntry>

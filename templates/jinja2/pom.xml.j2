@@ -1,0 +1,25 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>{{ package_prefix | default('com.hand.hsp') }}</groupId>
+    <artifactId>{{ project_name }}</artifactId>
+    <version>1.0.0</version>
+    <packaging>aar</packaging>
+
+    <name>{{ application_name }} - {{ project_name }}</name>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.oracle.servicebus.plugins</groupId>
+                <artifactId>osb-maven-plugin</artifactId>
+                <version>12.2.1-2-0</version>
+                <configuration>
+                    <osbHome>{{ soa_home | default('C:/Oracle/Jdeveloper12c/SOA/12.2.1.2.0') }}</osbHome>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
