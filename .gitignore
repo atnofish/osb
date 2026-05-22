@@ -44,3 +44,6 @@ plan.md
 
 # Bad filename artifact
 E:WorkSpaceosb-auto-configworkflow_extractsap-webservise.WSDL
+
+# Claude Code local settings
+.claude/settings.local.json

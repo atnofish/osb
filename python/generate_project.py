@@ -17,8 +17,7 @@ OSB 项目骨架生成器
         ├── Schemas/
         ├── Transformations/
         ├── WSDLs/
-        ├── application.xml
-        └── pom.xml
+        └── ExportInfo
 
 用法:
     python generate_project.py [config.yaml路径] [输出目录]
@@ -213,8 +212,9 @@ def generate_wsdl_from_source(base_dir, service):
     if not os.path.exists(source_path):
         raise ValueError("WSDL 源文件不存在: %s" % source_path)
 
-    with open(source_path, 'r', encoding='utf-8') as f:
+    with open(source_path, 'r', encoding='utf-8-sig') as f:
         wsdl_content = f.read()
+    wsdl_content = wsdl_content.replace('\r\n', '\n').rstrip()
 
     # 使用服务名作为 WSDL 文件名
     wsdl_file_name = svc_name
@@ -239,8 +239,8 @@ def generate_wsdl_from_source(base_dir, service):
 def generate_proxy_service_http(base_dir, service, project_name, config):
     """生成 HTTP Proxy Service (OSB 格式)"""
     svc_name = service.get('name')
-    proxy_name = svc_name + 'Proxy'
-    pipeline_name = svc_name + 'PP'
+    proxy_name = service.get('proxy_name', svc_name + 'Proxy')
+    pipeline_name = service.get('pipeline_name', svc_name + 'PP')
     security = service.get('security', {})
     wsdl_cfg = service.get('wsdl', {})
     wsdl_file_name = svc_name
@@ -254,6 +254,7 @@ def generate_proxy_service_http(base_dir, service, project_name, config):
         'module_path': module_path,
         'package_prefix': config['project'].get('package_prefix', 'com.hand.hsp'),
         'security': security,
+        'endpoint': service.get('endpoint', {}),
         'wsdl': {
             'binding_name': wsdl_cfg.get('binding_name', svc_name + 'SoapBinding'),
             'namespace': wsdl_cfg.get('namespace', 'http://' + config['project'].get('package_prefix', 'com.hand.hsp') + '/' + svc_name),
@@ -267,7 +268,7 @@ def generate_proxy_service_http(base_dir, service, project_name, config):
 def generate_business_service_http(base_dir, service, config, project_name):
     """生成 HTTP Business Service (OSB 格式)"""
     svc_name = service.get('name')
-    bs_name = service.get('business_service_name', svc_name)
+    bs_name = service.get('business_service_name', svc_name + 'Biz')
     endpoint = service.get('endpoint', {})
     wsdl_cfg = service.get('wsdl', {})
     wsdl_file_name = svc_name
@@ -285,15 +286,35 @@ def generate_business_service_http(base_dir, service, config, project_name):
             'namespace': wsdl_cfg.get('namespace', 'http://' + config['project'].get('package_prefix', 'com.hand.hsp') + '/' + svc_name),
         },
         'wsdl_file_name': wsdl_file_name,
+        'service_account_name': module_path.split('/')[-1],
     }
     output = render_template(ENV, 'business_service_http.bix.j2', context)
     write_file(base_dir, 'BusinessServices', bs_name + '.BusinessService', output)
+
+    # ServiceAccount（有认证凭据时生成）
+    if endpoint.get('username'):
+        acct_name = module_path.split('/')[-1] + 'ServiceAccount'
+        acct_content = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<ser:service-account xsi:type="ser:StaticServiceAccount" '
+            'xmlns:ser="http://www.bea.com/wli/sb/services" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+            'xmlns:con="http://www.bea.com/wli/sb/resources/config">\n'
+            '    <ser:static-account>\n'
+            '        <con:username>%s</con:username>\n'
+            '        <con:password>%s</con:password>\n'
+            '    </ser:static-account>\n'
+            '</ser:service-account>\n' % (
+                re.sub(r'[&<>]', lambda m: {'&':'&amp;','<':'&lt;','>':'&gt;'}[m.group()], endpoint['username']),
+                re.sub(r'[&<>]', lambda m: {'&':'&amp;','<':'&lt;','>':'&gt;'}[m.group()], endpoint.get('password', '')),
+            ))
+        write_file(base_dir, 'Account', acct_name + '.ServiceAccount', acct_content)
 
 
 def generate_pipeline_http(base_dir, service, config, project_name):
     """生成 HTTP Pipeline (OSB 格式)"""
     svc_name = service.get('name')
-    bs_name = service.get('business_service_name', svc_name)
+    bs_name = service.get('business_service_name', svc_name + 'Biz')
     operations = service.get('operations', [])
     if operations and isinstance(operations, list) and len(operations) > 0:
         first_op = operations[0] if isinstance(operations[0], dict) else {}
@@ -361,43 +382,24 @@ def generate_wsdl(base_dir, service, config):
     write_file(base_dir, 'WSDLs', svc_name + '.WSDL', output)
 
 
-def generate_application_xml(base_dir, config):
-    """生成 application.xml"""
-    context = {
-        'application_name': config['project']['application_name'],
-    }
-    output = render_template(ENV, 'application.xml.j2', context)
-    write_file(base_dir, None, 'application.xml', output)
-
-
-def generate_pom_xml(base_dir, config, project_name):
-    """生成 pom.xml"""
-    context = {
-        'project_name': project_name,
-        'application_name': config['project']['application_name'],
-        'package_prefix': config['project'].get('package_prefix', 'com.hand.hsp'),
-        'soa_home': config['project'].get('soa_home', ''),
-    }
-    output = render_template(ENV, 'pom.xml.j2', context)
-    write_file(base_dir, None, 'pom.xml', output)
-
-
 def write_file(base_dir, sub_dir, filename, content):
     """写入文件"""
     if sub_dir:
         path = os.path.join(base_dir, sub_dir, filename)
     else:
         path = os.path.join(base_dir, filename)
-
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
     print("    生成: %s/%s" % (sub_dir, filename) if sub_dir else "    生成: %s" % filename)
 
 
-def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, wsdl_file_name, pipeline_name):
+def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, wsdl_file_name, pipeline_name, has_auth=False, pipeline_template=None):
     """生成 ExportInfo 元数据文件"""
     from datetime import datetime
     now = datetime.now().strftime('%a %b %d %H:%M:%S CST %Y')
+    ts = int(datetime.now().timestamp() * 1000)
+    acct_name = module_path.split('/')[-1] + 'ServiceAccount'
 
     # instanceId/jarentryname 用 / 分隔，extrefs 用 $ 分隔
     mod_slash = module_path
@@ -405,9 +407,9 @@ def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, w
 
     lines = []
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<xml-fragment name="" version="v2" xmlns:imp="http://www.bea.com/wli/config/importexport">')
+    lines.append('<xml-fragment name="OSB-AUTO_build_%d" version="v2" xmlns:imp="http://www.bea.com/wli/config/importexport">' % ts)
     lines.append('    <imp:properties>')
-    lines.append('        <imp:property name="username" value="admin"/>')
+    lines.append('        <imp:property name="username" value="ServiceBus"/>')
     lines.append('        <imp:property name="description" value=""/>')
     lines.append('        <imp:property name="exporttime" value="%s"/>' % now)
     lines.append('        <imp:property name="productname" value="Oracle Service Bus"/>')
@@ -422,7 +424,7 @@ def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, w
     lines.append('            <imp:property name="dataclass" value="com.bea.wli.sb.pipeline.config.impl.PipelineEntryDocumentImpl"/>')
     lines.append('            <imp:property name="isencrypted" value="false"/>')
     lines.append('            <imp:property name="jarentryname" value="%s/Pipelines/%s.Pipeline"/>' % (mod_slash, pipeline_name))
-    lines.append('            <imp:property name="extrefs" value="PipelineTemplate$CommonSB$Hmw$PipelineTemplates$HspPptSoapEsbInfo"/>')
+    lines.append('            <imp:property name="extrefs" value="PipelineTemplate$%s"/>' % (pipeline_template or 'CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo').replace('/', '$'))
     lines.append('            <imp:property name="extrefs" value="BusinessService$%s$BusinessServices$%s"/>' % (mod_dollar, bs_name))
     lines.append('            <imp:property name="extrefs" value="WSDL$%s$WSDLs$%s"/>' % (mod_dollar, wsdl_file_name))
     lines.append('        </imp:properties>')
@@ -435,9 +437,21 @@ def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, w
     lines.append('            <imp:property name="dataclass" value="com.oracle.xmlns.servicebus.business.config.impl.BusinessServiceEntryDocumentImpl"/>')
     lines.append('            <imp:property name="isencrypted" value="false"/>')
     lines.append('            <imp:property name="jarentryname" value="%s/BusinessServices/%s.BusinessService"/>' % (mod_slash, bs_name))
+    if has_auth:
+        lines.append('            <imp:property name="extrefs" value="ServiceAccount$%s$Account$%s"/>' % (mod_dollar, acct_name))
     lines.append('            <imp:property name="extrefs" value="WSDL$%s$WSDLs$%s"/>' % (mod_dollar, wsdl_file_name))
     lines.append('        </imp:properties>')
     lines.append('    </imp:exportedItemInfo>')
+
+    if has_auth:
+        lines.append('    <imp:exportedItemInfo instanceId="%s/Account/%s" typeId="ServiceAccount">' % (mod_slash, acct_name))
+        lines.append('        <imp:properties>')
+        lines.append('            <imp:property name="representationversion" value="0"/>')
+        lines.append('            <imp:property name="dataclass" value="com.bea.wli.sb.svcacct.StaticServiceAccountConfig"/>')
+        lines.append('            <imp:property name="isencrypted" value="false"/>')
+        lines.append('            <imp:property name="jarentryname" value="%s/Account/%s.ServiceAccount"/>' % (mod_slash, acct_name))
+        lines.append('        </imp:properties>')
+        lines.append('    </imp:exportedItemInfo>')
 
     # ProxyService
     lines.append('    <imp:exportedItemInfo instanceId="%s/ProxyServices/%s" typeId="ProxyService">' % (mod_slash, proxy_name))
@@ -540,9 +554,6 @@ def main():
         base_dir = create_project_structure(output_dir, config, project_name)
         print("  项目目录: %s" % base_dir)
 
-        generate_application_xml(base_dir, config)
-        generate_pom_xml(base_dir, config, project_name)
-
         if svc_type == 'http':
             try:
                 service_with_defaults = get_config_with_defaults(service, config)
@@ -553,10 +564,13 @@ def main():
 
                 # 生成 ExportInfo
                 app_name = config['project']['application_name']
-                module_path = config.get('global', {}).get('module_path', '').rstrip('/') or f"{app_name}/{project_name}"
-                bs_name = service_with_defaults.get('business_service_name', svc_name)
+                module_path = normalize_module_path(config.get('global', {}).get('module_path', '')) or f"{app_name}/{project_name}"
+                bs_name = service_with_defaults.get('business_service_name', svc_name + 'Biz')
+                has_auth = bool(service_with_defaults.get('endpoint', {}).get('username'))
+                pipeline_template = config.get('defaults', {}).get(
+                    'pipeline_template', 'CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo')
                 generate_export_info(base_dir, module_path, svc_name, bs_name,
-                                     svc_name + 'Proxy', svc_name, svc_name + 'PP')
+                                     svc_name + 'Proxy', svc_name, svc_name + 'PP', has_auth, pipeline_template)
             except ValueError as e:
                 print("  [ERROR] %s — 跳过该服务" % e)
                 continue
