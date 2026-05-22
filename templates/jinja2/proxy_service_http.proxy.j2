@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ser:proxyServiceEntry xmlns:ser="http://www.bea.com/wli/sb/services" xmlns:con="http://www.bea.com/wli/sb/services/security/config" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:oper="http://xmlns.oracle.com/servicebus/proxy/operations" xmlns:tran="http://www.bea.com/wli/sb/transports" xmlns:env="http://www.bea.com/wli/config/env">
     <ser:coreEntry>
+{% set is_sap = (endpoint and endpoint.get('uri') and 'sap/bc/' in endpoint.get('uri')) or (wsdl.get('namespace') and 'sap-com' in wsdl.get('namespace')) %}
+{% if is_sap %}
+        <ser:security>
+            <con:inboundWss processWssHeader="true"/>
+        </ser:security>
+{% else %}
         <ser:security>
             <con:access-control-policies>
                 <con:transport-level-policy xsi:type="con1:ProviderPolicyContainerType" xmlns:con1="http://www.bea.com/wli/sb/security/accesscontrol/config">
@@ -10,6 +16,7 @@
                 </con:transport-level-policy>
             </con:access-control-policies>
         </ser:security>
+{% endif %}
         <ser:binding type="SOAP" xsi:type="con:SoapBindingType" isSoap12="false" xmlns:con="http://www.bea.com/wli/sb/services/bindings/config">
             <con:wsdl ref="{{ module_path | default(project_name) }}/WSDLs/{{ wsdl_file_name }}"/>
             <con:binding>

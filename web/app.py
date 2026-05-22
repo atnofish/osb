@@ -50,17 +50,17 @@ def extract_wsdl_info(wsdl_content, filename=''):
     ns_match = re.search(r'targetNamespace="([^"]+)"', wsdl_content)
     info['namespace'] = ns_match.group(1) if ns_match else ''
 
-    binding_matches = re.findall(r'<wsdl:binding name="([^"]+)"', wsdl_content)
+    binding_matches = re.findall(r'<[^>]*:binding name="([^"]+)"', wsdl_content)
     info['binding_name'] = binding_matches[0] if binding_matches else ''
 
-    # Match wsdl:port with name attribute anywhere in the tag, but not portType
-    port_tag_matches = re.findall(r'<wsdl:port\s[^>]*name="([^"]+)"', wsdl_content)
+    # Match port tag with name attribute, but not portType
+    port_tag_matches = re.findall(r'<[^>]*:port\s[^>]*name="([^"]+)"', wsdl_content)
     info['port_name'] = port_tag_matches[0] if port_tag_matches else ''
 
-    op_matches = re.findall(r'<wsdl:operation name="([^"]+)"', wsdl_content)
+    op_matches = re.findall(r'<[^>]*:operation name="([^"]+)"', wsdl_content)
     info['operations'] = list(dict.fromkeys(op_matches))
 
-    addr_matches = re.findall(r'<(?:wsdlsoap|soap):address\s+location="([^"]+)"', wsdl_content)
+    addr_matches = re.findall(r'<[^>]*:\s*address[\s\S]*?location="([^"]+)"', wsdl_content)
     info['endpoint_uri'] = addr_matches[0] if addr_matches else ''
 
     # === 自动推断 ===
@@ -194,6 +194,14 @@ def build_config(form_data, wsdl_info, wsdl_file_path):
     if bs_name:
         config['services'][0]['business_service_name'] = bs_name
 
+    proxy_name = safe_get('proxy_name')
+    if proxy_name:
+        config['services'][0]['proxy_name'] = proxy_name
+
+    pipeline_name = safe_get('pipeline_name')
+    if pipeline_name:
+        config['services'][0]['pipeline_name'] = pipeline_name
+
     return config
 
 
@@ -253,28 +261,15 @@ def generate_project(config, output_dir, templates_dir):
         else:
             base_dir = os.path.join(output_dir, app_name, project_name)
 
-        # 生成 application.xml
-        write_content(base_dir, None, 'application.xml',
-            render_template('application.xml.j2', {'application_name': app_name}))
-
-        # 生成 pom.xml
-        write_content(base_dir, None, 'pom.xml',
-            render_template('pom.xml.j2', {
-                'project_name': project_name,
-                'application_name': app_name,
-                'package_prefix': config['project'].get('package_prefix', 'com.hand.hsp'),
-                'soa_home': config['project'].get('soa_home', ''),
-            }))
-
         if svc_type == 'http':
             svc = get_config_with_defaults(service, config)
             wsdl_cfg = svc.get('wsdl', {})
             source_path = wsdl_cfg.get('source_path', '')
             module_path = normalize_module_path(config.get('global', {}).get('module_path', '')) or f"{app_name}/{project_name}"
-            bs_name = svc.get('business_service_name', svc_name)
-            proxy_name = svc_name + 'Proxy'
+            bs_name = svc.get('business_service_name', svc_name + 'Biz')
+            proxy_name = svc.get('proxy_name', svc_name + 'Proxy')
+            pipeline_name = svc.get('pipeline_name', svc_name + 'PP')
             wsdl_file_name = svc_name
-            pipeline_name = svc_name + 'PP'
 
             # WSDL
             with open(source_path, 'r', encoding='utf-8-sig') as f:
@@ -303,6 +298,7 @@ def generate_project(config, output_dir, templates_dir):
                     'module_path': module_path,
                     'package_prefix': config['project'].get('package_prefix', 'com.hand.hsp'),
                     'security': svc.get('security', {}),
+                    'endpoint': svc.get('endpoint', {}),
                     'wsdl': {
                         'binding_name': wsdl_cfg.get('binding_name', svc_name + 'SoapBinding'),
                         'namespace': wsdl_cfg.get('namespace', ''),
@@ -324,7 +320,27 @@ def generate_project(config, output_dir, templates_dir):
                         'namespace': wsdl_cfg.get('namespace', ''),
                     },
                     'wsdl_file_name': wsdl_file_name,
+                    'service_account_name': module_path.split('/')[-1],
                 }))
+
+            # ServiceAccount（有认证凭据时生成）
+            ep = svc.get('endpoint', {})
+            if ep.get('username'):
+                acct_name = module_path.split('/')[-1] + 'ServiceAccount'
+                write_content(base_dir, 'Account', acct_name + '.ServiceAccount',
+                    '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    '<ser:service-account xsi:type="ser:StaticServiceAccount" '
+                    'xmlns:ser="http://www.bea.com/wli/sb/services" '
+                    'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+                    'xmlns:con="http://www.bea.com/wli/sb/resources/config">\n'
+                    '    <ser:static-account>\n'
+                    '        <con:username>%s</con:username>\n'
+                    '        <con:password>%s</con:password>\n'
+                    '    </ser:static-account>\n'
+                    '</ser:service-account>\n' % (
+                        sanitize_for_xml(ep['username']),
+                        sanitize_for_xml(ep.get('password', '')),
+                    ))
 
             # Pipeline
             operations = svc.get('operations', [])
@@ -334,7 +350,7 @@ def generate_project(config, output_dir, templates_dir):
             else:
                 operation_name = 'defaultOperation'
 
-            write_content(base_dir, 'Pipelines', svc_name + 'PP.Pipeline',
+            write_content(base_dir, 'Pipelines', pipeline_name + '.Pipeline',
                 render_template('pipeline_http.pipeline.j2', {
                     'service_name': svc_name,
                     'business_service_name': bs_name,
@@ -356,17 +372,19 @@ def generate_project(config, output_dir, templates_dir):
     return results
 
 
-def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, wsdl_file_name, pipeline_name):
+def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, wsdl_file_name, pipeline_name, has_auth=False, pipeline_template=None):
     """生成 ExportInfo 元数据文件"""
     from datetime import datetime
     now = datetime.now().strftime('%a %b %d %H:%M:%S CST %Y')
+    ts = int(datetime.now().timestamp() * 1000)
     mod_slash = module_path
     mod_dollar = module_path.replace('/', '$')
+    acct_name = module_path.split('/')[-1] + 'ServiceAccount'
     lines = []
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<xml-fragment name="" version="v2" xmlns:imp="http://www.bea.com/wli/config/importexport">')
+    lines.append('<xml-fragment name="OSB-AUTO_build_%d" version="v2" xmlns:imp="http://www.bea.com/wli/config/importexport">' % ts)
     lines.append('    <imp:properties>')
-    lines.append('        <imp:property name="username" value="admin"/>')
+    lines.append('        <imp:property name="username" value="ServiceBus"/>')
     lines.append('        <imp:property name="description" value=""/>')
     lines.append('        <imp:property name="exporttime" value="%s"/>' % now)
     lines.append('        <imp:property name="productname" value="Oracle Service Bus"/>')
@@ -379,7 +397,7 @@ def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, w
     lines.append('            <imp:property name="dataclass" value="com.bea.wli.sb.pipeline.config.impl.PipelineEntryDocumentImpl"/>')
     lines.append('            <imp:property name="isencrypted" value="false"/>')
     lines.append('            <imp:property name="jarentryname" value="%s/Pipelines/%s.Pipeline"/>' % (mod_slash, pipeline_name))
-    lines.append('            <imp:property name="extrefs" value="PipelineTemplate$CommonSB$Hmw$PipelineTemplates$HspPptSoapEsbInfo"/>')
+    lines.append('            <imp:property name="extrefs" value="PipelineTemplate$%s"/>' % (pipeline_template or 'CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo').replace('/', '$'))
     lines.append('            <imp:property name="extrefs" value="BusinessService$%s$BusinessServices$%s"/>' % (mod_dollar, bs_name))
     lines.append('            <imp:property name="extrefs" value="WSDL$%s$WSDLs$%s"/>' % (mod_dollar, wsdl_file_name))
     lines.append('        </imp:properties>')
@@ -390,9 +408,20 @@ def generate_export_info(base_dir, module_path, svc_name, bs_name, proxy_name, w
     lines.append('            <imp:property name="dataclass" value="com.oracle.xmlns.servicebus.business.config.impl.BusinessServiceEntryDocumentImpl"/>')
     lines.append('            <imp:property name="isencrypted" value="false"/>')
     lines.append('            <imp:property name="jarentryname" value="%s/BusinessServices/%s.BusinessService"/>' % (mod_slash, bs_name))
+    if has_auth:
+        lines.append('            <imp:property name="extrefs" value="ServiceAccount$%s$Account$%s"/>' % (mod_dollar, acct_name))
     lines.append('            <imp:property name="extrefs" value="WSDL$%s$WSDLs$%s"/>' % (mod_dollar, wsdl_file_name))
     lines.append('        </imp:properties>')
     lines.append('    </imp:exportedItemInfo>')
+    if has_auth:
+        lines.append('    <imp:exportedItemInfo instanceId="%s/Account/%s" typeId="ServiceAccount">' % (mod_slash, acct_name))
+        lines.append('        <imp:properties>')
+        lines.append('            <imp:property name="representationversion" value="0"/>')
+        lines.append('            <imp:property name="dataclass" value="com.bea.wli.sb.svcacct.StaticServiceAccountConfig"/>')
+        lines.append('            <imp:property name="isencrypted" value="false"/>')
+        lines.append('            <imp:property name="jarentryname" value="%s/Account/%s.ServiceAccount"/>' % (mod_slash, acct_name))
+        lines.append('        </imp:properties>')
+        lines.append('    </imp:exportedItemInfo>')
     lines.append('    <imp:exportedItemInfo instanceId="%s/ProxyServices/%s" typeId="ProxyService">' % (mod_slash, proxy_name))
     lines.append('        <imp:properties>')
     lines.append('            <imp:property name="representationversion" value="0"/>')
@@ -480,7 +509,9 @@ def preview():
     app_name = config['project']['application_name']
     project_name = svc['name'] + 'SB'
     module_path = normalize_module_path(config['global'].get('module_path', '')) or project_name
-    bs_name = svc.get('business_service_name', svc['name'])
+    bs_name = svc.get('business_service_name', svc['name'] + 'Biz')
+    proxy_name = svc.get('proxy_name', svc['name'] + 'Proxy')
+    pipeline_name = svc.get('pipeline_name', svc['name'] + 'PP')
     wsdl_file_name = svc['name']
 
     return jsonify({
@@ -489,8 +520,8 @@ def preview():
         'module_path': module_path,
         'service_name': svc['name'],
         'business_service_name': bs_name,
-        'proxy_name': svc['name'] + 'Proxy',
-        'pipeline_name': svc['name'] + 'PP',
+        'proxy_name': proxy_name,
+        'pipeline_name': pipeline_name,
         'wsdl_file_name': wsdl_file_name + '.WSDL',
         'endpoint_uri': svc['endpoint']['uri'],
         'operations': [op['name'] if isinstance(op, dict) else op for op in svc['operations']],
@@ -499,8 +530,8 @@ def preview():
         'files': [
             f"{app_name}/{project_name}/",
             f"  BusinessServices/{bs_name}.BusinessService",
-            f"  Pipelines/{svc['name']}PP.Pipeline",
-            f"  ProxyServices/{svc['name']}Proxy.ProxyService",
+            f"  Pipelines/{pipeline_name}.Pipeline",
+            f"  ProxyServices/{proxy_name}.ProxyService",
             f"  WSDLs/{wsdl_file_name}.WSDL",
         ],
     })
@@ -543,21 +574,24 @@ def generate():
         app_name = config['project']['application_name']
         project_name = svc_name + 'SB'
         module_path = normalize_module_path(config.get('global', {}).get('module_path', '')) or f"{app_name}/{project_name}"
-        bs_name = svc.get('business_service_name', svc_name)
-        proxy_name = svc_name + 'Proxy'
-        pipeline_name = svc_name + 'PP'
+        bs_name = svc.get('business_service_name', svc_name + 'Biz')
+        proxy_name = svc.get('proxy_name', svc_name + 'Proxy')
+        pipeline_name = svc.get('pipeline_name', svc_name + 'PP')
         wsdl_file_name = svc_name
 
         # ExportInfo 放在 tmp_dir 下，确保它能被打包到 JAR 根目录
+        has_auth = bool(svc.get('endpoint', {}).get('username'))
+        _pipeline_template = config.get('defaults', {}).get(
+            'pipeline_template', 'CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo')
         generate_export_info(tmp_dir, module_path, svc_name, bs_name,
-                             proxy_name, wsdl_file_name, pipeline_name)
+                             proxy_name, wsdl_file_name, pipeline_name, has_auth, _pipeline_template)
 
-        # 打包 JAR
-        jar_path = os.path.join(tmp_dir, 'osb_output.jar')
-        with zipfile.ZipFile(jar_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 打包 JAR — 直接写入内存缓冲区，避免 send_file 前被 finally 删除
+        jar_buffer = io.BytesIO()
+        with zipfile.ZipFile(jar_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
             for root, dirs, files in os.walk(tmp_dir):
                 for f in files:
-                    if f in ('osb_output.jar', 'osb_output.zip'):
+                    if f == '.gitkeep':
                         continue
                     full = os.path.join(root, f)
                     arc = os.path.relpath(full, tmp_dir)
@@ -567,8 +601,9 @@ def generate():
         if os.path.exists(wsdl_path):
             os.remove(wsdl_path)
 
+        jar_buffer.seek(0)
         return send_file(
-            jar_path,
+            jar_buffer,
             mimetype='application/java-archive',
             as_attachment=True,
             download_name='osb_output.jar',

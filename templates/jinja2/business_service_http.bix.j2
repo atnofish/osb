@@ -7,7 +7,6 @@
                 <con:name>{{ wsdl.port_name | default(service_name) }}</con:name>
                 <con:namespace>{{ wsdl.namespace | default('http://' + (package_prefix or 'com.hsp') + '/' + service_name) }}</con:namespace>
             </con:port>
-            <con:WSI-compliant>false</con:WSI-compliant>
         </con1:binding>
         <oper:operations enabled="true">
             <oper:throttling enabled="false"/>
@@ -24,7 +23,7 @@
         <tran:provider-id>http</tran:provider-id>
         <tran:inbound>false</tran:inbound>
         <tran:URI>
-            <env:value>{{ endpoint.uri | default('http://localhost:8080/service') }}</env:value>
+            <env:value>{{ endpoint.get('uri', 'http://localhost:8080/service') }}</env:value>
         </tran:URI>
         <tran:outbound-properties>
             <tran:load-balancing-algorithm>{{ endpoint.load_balancing | default('round-robin') }}</tran:load-balancing-algorithm>
@@ -37,18 +36,14 @@
                 <http:request-method>POST</http:request-method>
                 <http:timeout>{{ endpoint.timeout | default(0) }}</http:timeout>
                 <http:connection-timeout>{{ endpoint.connection_timeout | default(0) }}</http:connection-timeout>
+{% if endpoint.get('username') %}
+                <http:outbound-authentication xsi:type="http:HttpBasicAuthenticationType"/>
+                <http:service-account ref="{{ module_path | default(project_name) }}/Account/{{ service_account_name | default(service_name) }}ServiceAccount"/>
+{% endif %}
                 <http:follow-redirects>false</http:follow-redirects>
                 <http:chunked-streaming-mode>true</http:chunked-streaming-mode>
-                <http:session-sctikiness enabled="false" session-id-name="JSESSIONID"/>
+                <http:session-stickiness enabled="false" session-id-name="JSESSIONID"/>
             </http:outbound-properties>
-{% if endpoint.username %}
-            <http:authentication>
-                <http:basic-authentication>
-                    <http:username>{{ endpoint.username }}</http:username>
-                    <http:password>{{ endpoint.password }}</http:password>
-                </http:basic-authentication>
-            </http:authentication>
-{% endif %}
             <http:dispatch-policy>SBDefaultResponseWorkManager</http:dispatch-policy>
             <http:compression>
                 <http:compression-support>false</http:compression-support>

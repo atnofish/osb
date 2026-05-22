@@ -561,19 +561,27 @@
                 <input type="text" name="service_name" class="auto-filled" placeholder="从 WSDL port/binding 推断" required>
             </div>
             <div class="form-group">
-                <label>Business Service 名称 <span class="auto-tag">自动推断</span></label>
-                <input type="text" name="business_service_name" class="auto-filled" placeholder="服务名 + Biz">
-            </div>
-            <div class="form-group">
                 <label>包前缀 <span class="auto-tag">自动推断</span></label>
                 <input type="text" name="package_prefix" class="auto-filled" value="com.hand.hsp">
             </div>
 
             <div class="section-label">模块与模板</div>
 
+            <div class="form-group full">
+                <label>OSB 模块路径 <span class="auto-tag">自动推断</span> <span style="color:#94a3b8;font-size:0.78em">← 决定 JAR 内文件结构</span></label>
+                <input type="text" name="module_path" class="auto-filled" placeholder="如 SapSB/Sap/Po/ProxyServices（会自动识别并去除子目录名）">
+            </div>
             <div class="form-group">
-                <label>模块路径 <span class="auto-tag">自动推断</span> <span style="color:#94a3b8;font-size:0.78em">← 决定 JAR 内文件结构</span></label>
-                <input type="text" name="module_path" class="auto-filled" placeholder="如 YlglSB/Ylgl/Workflow（填 YlglSB/Ylgl/Workflow/ProxyServices/ 也可以，会自动识别）">
+                <label>OSB-Proxy 名称 <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="proxy_name" class="auto-filled" placeholder="服务名 + Proxy">
+            </div>
+            <div class="form-group">
+                <label>OSB-Pipeline 名称 <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="pipeline_name" class="auto-filled" placeholder="服务名 + PP">
+            </div>
+            <div class="form-group">
+                <label>OSB-Biz 名称 <span class="auto-tag">自动推断</span></label>
+                <input type="text" name="business_service_name" class="auto-filled" placeholder="服务名 + Biz">
             </div>
             <div class="form-group">
                 <label>Pipeline 模板</label>
