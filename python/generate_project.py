@@ -569,8 +569,10 @@ def main():
                 has_auth = bool(service_with_defaults.get('endpoint', {}).get('username'))
                 pipeline_template = config.get('defaults', {}).get(
                     'pipeline_template', 'CommonSB/Hmw/PipelineTemplates/HspPptSoapEsbInfo')
+                proxy_name = service_with_defaults.get('proxy_name', svc_name + 'Proxy')
+                pipeline_name = service_with_defaults.get('pipeline_name', svc_name + 'PP')
                 generate_export_info(base_dir, module_path, svc_name, bs_name,
-                                     svc_name + 'Proxy', svc_name, svc_name + 'PP', has_auth, pipeline_template)
+                                     proxy_name, svc_name, pipeline_name, has_auth, pipeline_template)
             except ValueError as e:
                 print("  [ERROR] %s — 跳过该服务" % e)
                 continue
